@@ -1,11 +1,11 @@
 var assert = require('assert')
-const JavaScriptUtils = require('../../../../_generated/js/JavaScriptUtils.js')
-const { TransactionTypePropertyModificationBuffer } = require('../../../../_generated/js/TransactionTypePropertyModificationBuffer.js')
+const JavaScriptUtils = require('../../support/JavaScriptUtils.js')
+const { AccountAddressRestrictionModificationBuffer } = require('../../../../_generated/js/AccountAddressRestrictionModificationBuffer.js')
 
 
-describe('TransactionTypePropertyModificationBuffer generated class', function () {
+describe('AccountAddressRestrictionModificationBuffer generated class', function () {
     it('has required getters and setters', function(done) {
-        var buffer = new TransactionTypePropertyModificationBuffer()
+        var buffer = new AccountAddressRestrictionModificationBuffer()
         buffer.getModificationtype()
         buffer.setModificationtype(null)
         buffer.getValue()
@@ -15,12 +15,15 @@ describe('TransactionTypePropertyModificationBuffer generated class', function (
 
     it('loadFromBinary initializes from binary data', function(done) {
         var modificationTypeBuffer = Buffer.of(0xF2)
-        var valueBuffer = Buffer.of(0x3E, 0xE9)
+        var valueBuffer = Buffer.of(
+                0x3E, 0xE9, 0xFA, 0x15, 0xA3, 0xB6, 0x05, 0xDC, 0x0C, 0x4C, 0xF7, 0xF1, 0xB1, 0x5A, 0xAB, 0xDC,
+                0xE8, 0x34, 0x62, 0x6D, 0x00, 0x3C, 0xBF, 0xC2, 0x18
+        )
         var consumableBuffer = new JavaScriptUtils.Uint8ArrayConsumableBuffer(new Uint8Array(Buffer.concat([
             modificationTypeBuffer,
             valueBuffer,
         ])))
-        var buffer = TransactionTypePropertyModificationBuffer.loadFromBinary(consumableBuffer)
+        var buffer = AccountAddressRestrictionModificationBuffer.loadFromBinary(consumableBuffer)
 
         assert.deepEqual(buffer.modificationType, modificationTypeBuffer)
         assert.deepEqual(buffer.value, valueBuffer)
@@ -29,10 +32,13 @@ describe('TransactionTypePropertyModificationBuffer generated class', function (
     })
 
     it('serialize outputs a valid formatted buffer', function(done) {
-        var modificationTypeBuffer = Buffer.of(0xF5)
-        var valueBuffer = Buffer.of(0xFA, 0x15)
+        var modificationTypeBuffer = Buffer.of(0xF2)
+        var valueBuffer = Buffer.of(
+                0x3E, 0xE9, 0xFA, 0x15, 0xA3, 0xB6, 0x05, 0xDC, 0x0C, 0x4C, 0xF7, 0xF1, 0xB1, 0x5A, 0xAB, 0xDC,
+                0xE8, 0x34, 0x62, 0x6D, 0x00, 0x3C, 0xBF, 0xC2, 0x18
+        )
 
-        var buffer = new TransactionTypePropertyModificationBuffer()
+        var buffer = new AccountAddressRestrictionModificationBuffer()
         buffer.modificationType = modificationTypeBuffer
         buffer.value = valueBuffer
 

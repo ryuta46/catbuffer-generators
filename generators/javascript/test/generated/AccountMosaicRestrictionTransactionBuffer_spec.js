@@ -1,12 +1,12 @@
 var assert = require('assert')
-const JavaScriptUtils = require('../../../../_generated/js/JavaScriptUtils.js')
-const { AddressPropertyModificationBuffer } = require('../../../../_generated/js/AddressPropertyModificationBuffer.js')
-const { AddressPropertyTransactionBuffer } = require('../../../../_generated/js/AddressPropertyTransactionBuffer.js')
+const JavaScriptUtils = require('../../support/JavaScriptUtils.js')
+const { AccountMosaicRestrictionModificationBuffer } = require('../../../../_generated/js/AccountMosaicRestrictionModificationBuffer.js')
+const { AccountMosaicRestrictionTransactionBuffer } = require('../../../../_generated/js/AccountMosaicRestrictionTransactionBuffer.js')
 
 
-describe('AddressPropertyTransactionBuffer generated class', function () {
+describe('AccountMosaicRestrictionTransactionBuffer generated class', function () {
     it('has required getters and setters', function(done) {
-        var buffer = new AddressPropertyTransactionBuffer()
+        var buffer = new AccountMosaicRestrictionTransactionBuffer()
         buffer.getSize()
         buffer.setSize(null)
         buffer.getSignature()
@@ -21,27 +21,21 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
         buffer.setFee(null)
         buffer.getDeadline()
         buffer.setDeadline(null)
-        buffer.getPropertytype()
-        buffer.setPropertytype(null)
+        buffer.getRestrictiontype()
+        buffer.setRestrictiontype(null)
         buffer.getModifications()
         buffer.setModifications(null)
         done()
     })
 
     it('loadFromBinary initializes from binary data', function(done) {
-        var modificationBuffer1 = new AddressPropertyModificationBuffer()
+        var modificationBuffer1 = new AccountMosaicRestrictionModificationBuffer()
         modificationBuffer1.modificationType = new Uint8Array(Buffer.of(0x04))
-        modificationBuffer1.value = new Uint8Array(Buffer.of(
-            0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77,
-            0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34
-        ))
+        modificationBuffer1.value = new Uint8Array(Buffer.of(0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77))
         var modification1 = modificationBuffer1.serialize()
-        var modificationBuffer2 = new AddressPropertyModificationBuffer()
+        var modificationBuffer2 = new AccountMosaicRestrictionModificationBuffer()
         modificationBuffer2.modificationType = new Uint8Array(Buffer.of(0x05))
-        modificationBuffer2.value = new Uint8Array(Buffer.of(
-            0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33,
-            0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44
-        ))
+        modificationBuffer2.value = new Uint8Array(Buffer.of(0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33))
         var modification2 = modificationBuffer2.serialize()
 
         var sizeBuffer = Buffer.of(0xF2, 0x26, 0x6C, 0x06)
@@ -59,7 +53,7 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
         var typeBuffer = Buffer.of(0x22, 0x66)
         var feeBuffer = Buffer.of(0xB6, 0x05, 0xDC, 0x0C, 0x4C, 0xF7, 0xF2, 0x06)
         var deadlineBuffer = Buffer.of(0xF2, 0x26, 0x0C, 0x4C, 0xF7, 0xF1, 0x6C, 0x06)
-        var propertyTypeBuffer = Buffer.of(0x26)
+        var accountRestrictionTypeBuffer = Buffer.of(0x26)
         var modificationsCountBuffer = Buffer.of(0x02)
         var modificationsBuffer = Buffer.concat([
             modification1,
@@ -73,11 +67,11 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
             typeBuffer,
             feeBuffer,
             deadlineBuffer,
-            propertyTypeBuffer,
+            accountRestrictionTypeBuffer,
             modificationsCountBuffer,
             modificationsBuffer,
         ])))
-        var buffer = AddressPropertyTransactionBuffer.loadFromBinary(consumableBuffer)
+        var buffer = AccountMosaicRestrictionTransactionBuffer.loadFromBinary(consumableBuffer)
 
         assert.deepEqual(buffer.size, sizeBuffer)
         assert.deepEqual(buffer.signature, signatureBuffer)
@@ -86,7 +80,7 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
         assert.deepEqual(buffer.type, typeBuffer)
         assert.deepEqual(buffer.fee, feeBuffer)
         assert.deepEqual(buffer.deadline, deadlineBuffer)
-        assert.deepEqual(buffer.propertyType, propertyTypeBuffer)
+        assert.deepEqual(buffer.restrictionType, accountRestrictionTypeBuffer)
         assert.deepEqual(buffer.modifications.length, 2)
         assert.deepEqual(buffer.modifications[0].serialize(), modification1)
         assert.deepEqual(buffer.modifications[1].serialize(), modification2)
@@ -95,19 +89,13 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
     })
 
     it('serialize outputs a valid formatted buffer', function(done) {
-        var modificationBuffer1 = new AddressPropertyModificationBuffer()
+        var modificationBuffer1 = new AccountMosaicRestrictionModificationBuffer()
         modificationBuffer1.modificationType = new Uint8Array(Buffer.of(0x04))
-        modificationBuffer1.value = new Uint8Array(Buffer.of(
-            0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77,
-            0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34
-        ))
+        modificationBuffer1.value = new Uint8Array(Buffer.of(0x34, 0x77, 0x34, 0x77, 0x34, 0x77, 0x34, 0x77))
         var modification1 = modificationBuffer1.serialize()
-        var modificationBuffer2 = new AddressPropertyModificationBuffer()
+        var modificationBuffer2 = new AccountMosaicRestrictionModificationBuffer()
         modificationBuffer2.modificationType = new Uint8Array(Buffer.of(0x05))
-        modificationBuffer2.value = new Uint8Array(Buffer.of(
-            0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33,
-            0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44
-        ))
+        modificationBuffer2.value = new Uint8Array(Buffer.of(0x44, 0x33, 0x44, 0x33, 0x44, 0x33, 0x44, 0x33))
         var modification2 = modificationBuffer2.serialize()
 
         var sizeBuffer = Buffer.of(0xF2, 0x26, 0x6C, 0x06)
@@ -125,14 +113,14 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
         var typeBuffer = Buffer.of(0x22, 0x66)
         var feeBuffer = Buffer.of(0xB6, 0x05, 0xDC, 0x0C, 0x4C, 0xF7, 0xF2, 0x06)
         var deadlineBuffer = Buffer.of(0xF2, 0x26, 0x0C, 0x4C, 0xF7, 0xF1, 0x6C, 0x06)
-        var propertyTypeBuffer = Buffer.of(0x26)
+        var accountRestrictionTypeBuffer = Buffer.of(0x26)
         var modificationsCountBuffer = Buffer.of(0x02)
         var modificationsBuffer = Buffer.concat([
             modification1,
             modification2,
         ])
 
-        var buffer = new AddressPropertyTransactionBuffer()
+        var buffer = new AccountMosaicRestrictionTransactionBuffer()
         buffer.size = sizeBuffer
         buffer.signature = signatureBuffer
         buffer.signer = signerBuffer
@@ -140,7 +128,7 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
         buffer.type = typeBuffer
         buffer.fee = feeBuffer
         buffer.deadline = deadlineBuffer
-        buffer.propertyType = propertyTypeBuffer
+        buffer.restrictionType = accountRestrictionTypeBuffer
         buffer.modifications = [modificationBuffer1, modificationBuffer2]
 
         var serializedData = buffer.serialize()
@@ -152,7 +140,7 @@ describe('AddressPropertyTransactionBuffer generated class', function () {
             typeBuffer,
             feeBuffer,
             deadlineBuffer,
-            propertyTypeBuffer,
+            accountRestrictionTypeBuffer,
             modificationsCountBuffer,
             modificationsBuffer,
         ]))

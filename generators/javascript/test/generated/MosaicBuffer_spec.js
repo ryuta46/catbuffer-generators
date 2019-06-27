@@ -1,5 +1,5 @@
 var assert = require('assert')
-const JavaScriptUtils = require('../../../../_generated/js/JavaScriptUtils.js')
+const JavaScriptUtils = require('../../support/JavaScriptUtils.js')
 const { MosaicBuffer } = require('../../../../_generated/js/MosaicBuffer.js')
 
 

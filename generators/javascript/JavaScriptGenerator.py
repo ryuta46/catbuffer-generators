@@ -5,7 +5,7 @@ from generators.Descriptor import Descriptor
 from .javascript_builder.JavaScriptBlockGenerator import BlockType, JavaScriptBlockGenerator
 from .javascript_builder.JavaScriptClassGenerator import JavaScriptClassGenerator
 from .javascript_builder.JavaScriptFunctionGenerator import FunctionType, JavaScriptFunctionGenerator
-from .javascript_builder.JavaScriptUtils import indent
+from .javascript_builder.JavaScriptGeneratorUtils import indent
 
 
 class TypeDescriptorType(Enum):

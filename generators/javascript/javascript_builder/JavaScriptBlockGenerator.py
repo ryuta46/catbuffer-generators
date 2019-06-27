@@ -40,7 +40,7 @@ class JavaScriptBlockGenerator:
                 return ['else {'] + indent(self.instructions) + ['}']
             if self.type is BlockType.FOR:
                 return [
-                    'const {0}'.format(self.iterator),
+                    'var {0}'.format(self.iterator),
                     'for ({0} = 0; {0} {1}; {0}++) {{'.format(self.iterator, self.rule)
                 ] + indent(self.instructions) + ['}']
 

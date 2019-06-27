@@ -1,11 +1,11 @@
 var assert = require('assert')
-const JavaScriptUtils = require('../../../../_generated/js/JavaScriptUtils.js')
-const { MosaicPropertyModificationBuffer } = require('../../../../_generated/js/MosaicPropertyModificationBuffer.js')
+const JavaScriptUtils = require('../../support/JavaScriptUtils.js')
+const { AccountMosaicRestrictionModificationBuffer } = require('../../../../_generated/js/AccountMosaicRestrictionModificationBuffer.js')
 
 
-describe('MosaicPropertyModificationBuffer generated class', function () {
+describe('AccountMosaicRestrictionModificationBuffer generated class', function () {
     it('has required getters and setters', function(done) {
-        var buffer = new MosaicPropertyModificationBuffer()
+        var buffer = new AccountMosaicRestrictionModificationBuffer()
         buffer.getModificationtype()
         buffer.setModificationtype(null)
         buffer.getValue()
@@ -20,7 +20,7 @@ describe('MosaicPropertyModificationBuffer generated class', function () {
             modificationTypeBuffer,
             valueBuffer,
         ])))
-        var buffer = MosaicPropertyModificationBuffer.loadFromBinary(consumableBuffer)
+        var buffer = AccountMosaicRestrictionModificationBuffer.loadFromBinary(consumableBuffer)
 
         assert.deepEqual(buffer.modificationType, modificationTypeBuffer)
         assert.deepEqual(buffer.value, valueBuffer)
@@ -32,7 +32,7 @@ describe('MosaicPropertyModificationBuffer generated class', function () {
         var modificationTypeBuffer = Buffer.of(0xF4)
         var valueBuffer = Buffer.of(0x3E, 0xE9, 0xFA, 0x15, 0xA3, 0xB6, 0x05, 0xDC)
 
-        var buffer = new MosaicPropertyModificationBuffer()
+        var buffer = new AccountMosaicRestrictionModificationBuffer()
         buffer.modificationType = modificationTypeBuffer
         buffer.value = valueBuffer
 
