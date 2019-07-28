@@ -67,8 +67,9 @@ class TypescriptGeneratorBase(ABC):
 
     def _add_serialize_method(self):
         serialize_method = TypescriptMethodGenerator('public', 'Uint8Array', 'serialize', [], '')
+        serialize_method.add_instructions(['let newArray = new Uint8Array(this.getSize())'], True)
         self._add_serialize_custom(serialize_method)
-        serialize_method.decrement_indent()
+        serialize_method.add_instructions(['return newArray'], True)
         self._add_method_documentation(serialize_method, 'Serializes an object to bytes.', [], 'Serialized bytes.')
         self._add_method(serialize_method, False)
 

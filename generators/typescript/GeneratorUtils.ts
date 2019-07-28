@@ -8,170 +8,85 @@ export class GeneratorUtils {
      * @param {Uint8Array} input A uint8 array.
      * @returns {number[]} The uint64 representation of the input.
      */
-    public static uint64FromBytes (input: Uint8Array) {
+    public static uint64FromBytes (input: Uint8Array): number[] {
         if (8 !== input.length) {
             throw Error(`byte array has unexpected size '${input.length}'`);
         }
         return [GeneratorUtils.readUint32At(input, 0), GeneratorUtils.readUint32At(input, 4)];
 	}
 	
-	public static readUint32At(bytes: Uint8Array, index: number) {
+	/**
+     * Read buffer into 32bits integer at given index.
+     * @param {Uint8Array} bytes A uint8 array.
+	 * @param {number} index Index.
+     * @returns {number} 32bits integer.
+     */
+	public static readUint32At(bytes: Uint8Array, index: number): number {
 		return (bytes[index] + (bytes[index + 1] << 8) + (bytes[index + 2] << 16) + (bytes[index + 3] << 24)) >>> 0;
-	} 
+	}
+
 	/**
-	 * Throws if the value is not true.
-	 *
-	 * @param expression Expression to check.
-	 * @param message    Format string message.
-	 * @param values     Format values.
-	 */
-	public static void isTrue(boolean expression, String message, Object... values) {
-		if (!expression) {
-			throw new IllegalArgumentException(String.format(message, values));
+     * Write uint to buffer
+     * @param {number} uintValue A uint8 array.
+	 * @param {number} bufferSize Buffer size.
+     * @returns {Uint8Array}
+     */
+	public static uintToBuffer (uintValue: number, bufferSize: number): Uint8Array {
+		const buffer = new ArrayBuffer(bufferSize);
+		const dataView = new DataView(buffer);
+		if (1 === bufferSize)
+			dataView.setUint8(0, uintValue);
+	
+		else if (2 === bufferSize)
+			dataView.setUint16(0, uintValue, true);
+	
+		else if (4 === bufferSize)
+			dataView.setUint32(0, uintValue, true);
+	
+		else
+			throw new Error('Unexpected bufferSize');
+	
+		return new Uint8Array(buffer);
+	};
+
+	/**
+     * Write Uint64 to buffer
+     * @param {number} uintValue Uint64 (number[]).
+     * @returns {Uint8Array}
+     */
+	public static uint64ToBuffer(uintValue: number[]): Uint8Array {
+		const uint32Array = new Uint32Array(uintValue);
+		return new Uint8Array(uint32Array.buffer).reverse();
+	}
+
+	/**
+     * Concatenate two arrays
+     * @param {Uint8Array} array1 A Uint8Array.
+	 * @param {Uint8Array} array2 A Uint8Array.
+     * @returns {Uint8Array}
+     */
+	public static concatTypedArrays(array1: Uint8Array, array2: Uint8Array): Uint8Array {
+		const newArray = new Uint8Array(array1.length + array2.length);
+		newArray.set(array1);
+		newArray.set(array2, array1.length);
+		return newArray;
+	};
+
+	/**
+     * Genreate fixed size array
+     * @param {Uint8Array} array A Uint8Array.
+	 * @param {number} size Array size.
+     * @returns {Uint8Array}
+     */
+	public static fitByteArray (array: Uint8Array, size: number): Uint8Array {
+		if (array.length > size) {
+			throw new RangeError('Data size larger than allowed');
+		} else if (array.length < size) {
+			const newArray = new Uint8Array(size);
+			newArray.fill(0);
+			newArray.set(array, size - array.length);
+			return newArray;
 		}
-	}
-
-	/**
-	 * Throws if the value is not false.
-	 *
-	 * @param expression Expression to check.
-	 * @param message    Format string message.
-	 * @param values     Format values.
-	 */
-	public static void isFalse(boolean expression, String message, Object... values) {
-		isTrue(!expression, message, values);
-	}
-
-	/**
-	 * Creates a bitwise representation for an EnumSet.
-	 *
-	 * @param enumClass Enum type.
-	 * @param enumSet   EnumSet to convert to bit representation.
-	 * @param <T>       Type of enum.
-	 * @return          Long value of the EnumSet.
-	 */
-	public static <T extends Enum<T> & BitMaskable> long toLong(final Class<T> enumClass, final EnumSet<T> enumSet) {
-		final T[] enumValues = enumClass.getEnumConstants();
-		isFalse(enumValues.length > Long.SIZE, "The number of enum constants is greater than " + Long.SIZE);
-		long result = 0;
-		for (final T value : enumValues) {
-			if (enumSet.contains(value)) {
-				result += value.getValue();
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Creates a EnumSet from from a bit representation.
-	 *
-	 * @param enumClass    Enum class.
-	 * @param bitMaskValue Bitmask value.
-	 * @param <T>          Enum type.
-	 * @return             EnumSet representing the long value.
-	 */
-	public static <T extends Enum<T> & BitMaskable> EnumSet<T> toSet(final Class<T> enumClass, final long bitMaskValue) {
-		final EnumSet<T> results = EnumSet.noneOf(enumClass);
-		for (final T constant : enumClass.getEnumConstants()) {
-			if (0 != (constant.getValue() & bitMaskValue)) {
-				results.add(constant);
-			}
-		}
-		return results;
-	}
-
-	/**
-	 * Gets a runtime exception to propagates from an exception.
-	 *
-	 * @param exception Exception to propagate.
-	 * @param wrap      Function that wraps an exception in a runtime exception.
-	 * @param <E>       Specific exception type.
-	 * @return          RuntimeException to throw.
-	 */
-	public static <E extends RuntimeException>  RuntimeException getExceptionToPropagate(final Exception exception,
-																						 final Function<Exception,	E> wrap) {
-		if ((exception instanceof ExecutionException) && (RuntimeException.class.isAssignableFrom(exception.getCause().getClass()))) {
-			return (RuntimeException) exception.getCause();
-		}
-		if (exception instanceof RuntimeException){
-			return (RuntimeException) exception;
-		}
-		if (exception instanceof InterruptedException) {
-			Thread.currentThread().interrupt();
-			return new IllegalStateException(exception);
-		}
-		return wrap.apply(exception);
-	}
-
-	/**
-	 * Gets a runtime exception to propagates from an exception.
-	 *
-	 * @param exception Exception to propagate.
-	 * @param <E>       Specific exception type.
-	 * @return          RuntimeException to throw.
-	 */
-	public static <E extends RuntimeException>  RuntimeException getExceptionToPropagate(final Exception exception) {
-		return getExceptionToPropagate(exception, RuntimeException::new);
-	}
-
-	/**
-	 * Propagates checked exceptions as a specific runtime exception.
-	 *
-	 * @param callable Function to call.
-	 * @param wrap     Function that wraps an exception in a runtime exception.
-	 * @param <T>      Return type.
-	 * @param <E>      Specific exception type.
-	 * @return         Function result.
-	 */
-	public static <T, E extends RuntimeException> T propagate(final Callable<T> callable, final Function<Exception, E> wrap) {
-		try {
-			return callable.call();
-		} catch (final Exception e) {
-			throw getExceptionToPropagate(e, wrap);
-		}
-	}
-
-	/**
-	 * Propagates checked exceptions as a runtime exception.
-	 *
-	 * @param callable Function to call.
-	 * @param <T>      Function return type.
-	 * @return         Function result.
-	 */
-	public static <T> T propagate(final Callable<T> callable) {
-		return propagate(callable, RuntimeException::new);
-	}
-
-	/**
-	 * Throwing consumer interface.
-	 *
-	 * @param <T> Input type.
-	 * @param <E> Exception that is thrown.
-	 */
-	public interface ThrowingConsumer<T, E extends Exception> {
-
-		/**
-		 * Performs operation on the given argument.
-		 *
-		 * @param t  Input argument.
-		 * @throws E Exception that is thrown.
-		 */
-		void accept(T t) throws E;
-	}
-
-	/**
-	 * Serializes data using a helper function to write to the stream.
-	 *
-	 * @param consumer Helper function that writes data to DataOutputStream.
-	 * @return         Byte array of data written.
-	 */
-	public static byte[] serialize(ThrowingConsumer<DataOutputStream, Exception> consumer) {
-		return propagate(() -> {
-			try (final ByteArrayOutputStream byteArrayStream = new ByteArrayOutputStream();
-				final DataOutputStream dataOutputStream = new DataOutputStream(byteArrayStream)) {
-				consumer.accept(dataOutputStream);
-				return byteArrayStream.toByteArray();
-			}
-		});
-	}
+		return array;
+	};
 }

@@ -115,7 +115,7 @@ def get_attribute_property_equal(schema, attributes, attribute_name, attribute_v
 
 
 def get_builtin_type(size):
-    builtin_types = {1: 'number[]', 2: 'number[]', 4: 'number[]', 8: 'number[]'}
+    builtin_types = {1: 'number', 2: 'number', 4: 'number', 8: 'number[]'}
     builtin_type = builtin_types[size]
     return builtin_type
 
@@ -124,7 +124,10 @@ def get_read_method_name(size):
     if isinstance(size, str) or size > 8:
         method_name = 'readFully'
     else:
-        type_size_method_name = {1: 'readByte', 2: 'readShort', 4: 'readInt', 8: 'readLong'}
+        type_size_method_name = {1: 'GeneratorUtils.uintToBuffer',
+                                 2: 'GeneratorUtils.uintToBuffer',
+                                 4: 'GeneratorUtils.uintToBuffer',
+                                 8: 'GeneratorUtils.uint64ToBuffer'}
         method_name = type_size_method_name[size]
     return method_name
 
@@ -154,7 +157,7 @@ def get_byte_convert_method_name(size):
     else:
         typesize_methodname = {1: 'writeByte',
                                2: 'writeShort',
-                               4: 'writeInt',
+                               4: 'GeneratorUtils.readUint32At({0}, 0)',
                                8: 'GeneratorUtils.uint64FromBytes({0})'}
         method_name = typesize_methodname[size]
     return method_name
