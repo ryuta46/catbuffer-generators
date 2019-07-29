@@ -155,10 +155,10 @@ def get_byte_convert_method_name(size):
     if isinstance(size, str) or size > 8:
         method_name = ''
     else:
-        typesize_methodname = {1: 'writeByte',
-                               2: 'writeShort',
-                               4: 'GeneratorUtils.readUint32At({0}, 0)',
-                               8: 'GeneratorUtils.uint64FromBytes({0})'}
+        typesize_methodname = {1: 'GeneratorUtils.bufferToUint({0})',
+                               2: 'GeneratorUtils.bufferToUint({0})',
+                               4: 'GeneratorUtils.bufferToUint({0})',
+                               8: 'GeneratorUtils.bufferToUint64({0})'}
         method_name = typesize_methodname[size]
     return method_name
 

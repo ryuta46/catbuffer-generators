@@ -58,7 +58,8 @@ class TypescriptGeneratorBase(ABC):
 
     def _add_load_from_binary_method(self):
         load_from_binary_method = TypescriptMethodGenerator('public', self.generated_class_name, 'loadFromBinary',
-                                                      ['payload: Uint8Array'], '', True)
+                                                            ['payload: Uint8Array'], '', True)
+        load_from_binary_method.add_instructions(['let byteArray = Array.from(payload)'], True)
         self._add_load_from_binary_custom(load_from_binary_method)
         self._add_method_documentation(load_from_binary_method, 'Creates an instance of {0} from binary payload.'
                                        .format(self.generated_class_name), [('payload', 'Byte payload to use to serialize the object.')],

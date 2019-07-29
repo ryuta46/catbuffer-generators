@@ -20,6 +20,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         self.class_type = 'class'
         self.condition_list = []
         self.import_list = []
+        self.load_from_binary_atrribute_list = []
         self._add_required_import(format_import('GeneratorUtils'))
 
         if 'layout' in self.class_schema:
@@ -244,40 +245,72 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _load_from_binary_simple(self, attribute, load_from_binary_method):
         size = get_attribute_size(self.schema, attribute)
-        read_method_name = get_byte_convert_method_name(size).format(get_reverse_method_name(size).format('payload'))
-        lines = ['return new {0}({1})'.format(get_generated_class_name(self.name, attribute, self.schema), read_method_name)]
+        const_delaration = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
+        read_method_name = get_byte_convert_method_name(size).format(const_delaration)
+        lines = ['const {0} = {1}'.format(attribute['name'], read_method_name)]
+        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
         self._init_other_attribute_in_condition(attribute, 'this.', lines)
         self._add_attribute_condition_if_needed(attribute, load_from_binary_method, 'this.', lines)
+        if len(self.load_from_binary_atrribute_list) <= 1:
+            load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
     def _load_from_binary_buffer(self, attribute, load_from_binary_method):
-        load_from_binary_method.add_instructions(['return new {0}(payload);'.format(get_generated_class_name(self.name,
-                                                                                                             attribute, self.schema))])
+        size = get_attribute_size(self.schema, attribute)
+        lines = ['const {0} = GeneratorUtils.getBytes(Uint8Array.from(byteArray), {1})'.format(attribute['name'], size)]
+        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
+        load_from_binary_method.add_instructions(lines)
+        if len(self.load_from_binary_atrribute_list) <= 1:
+            load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
     def _load_from_binary_array(self, attribute, load_from_binary_method):
         attribute_typename = attribute['type']
         attribute_sizename = attribute['size']
         attribute_name = attribute['name']
-        load_from_binary_method.add_instructions(['this.{0} = new Typescript.util.ArrayList<>({1})'.format(attribute_name,
-                                                                                                           attribute_sizename)])
-        load_from_binary_method.add_instructions(['for (int i = 0; i < {0}; i++) {{'.format(attribute_sizename)], False)
+        load_from_binary_method.add_instructions(['const {0} = []'.format(attribute_name)])
+        load_from_binary_method.add_instructions(['for (let i = 0; i < {0}; i++) {{'.format(attribute_sizename)], False)
 
         if is_byte_type(attribute_typename):
+            const_delaration = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), 1)'
+            read_method_name = get_byte_convert_method_name(1).format(const_delaration)
+            load_from_binary_method.add_instructions(
+                [indent('const item = {0}'.format(read_method_name))])
             load_from_binary_method.add_instructions([indent('{0}.add(stream.{1}())'.format(attribute_name, get_read_method_name(1)))])
         else:
             load_from_binary_method.add_instructions(
-                [indent('{0}.add({1}.loadFromBinary(stream))'.format(attribute_name, get_generated_class_name(attribute_typename, attribute,
-                                                                                                              self.schema)))])
+                [indent('const item = {0}.loadFromBinary(Uint8Array.from(byteArray))'.format(get_generated_class_name(attribute_typename, attribute,
+                                                                                                                      self.schema)))])
+        load_from_binary_method.add_instructions([indent('{0}.push(item)'.format(attribute_name))])
+        load_from_binary_method.add_instructions([indent('byteArray = byteArray.splice(0, item.getSize())')])
         load_from_binary_method.add_instructions(['}'], False)
 
     def _load_from_binary_custom(self, attribute, load_from_binary_method):
-        lines = ['this.{0} = {1}.loadFromBinary(stream)'.format(attribute['name'],
-                                                                get_generated_class_name(attribute['type'], attribute, self.schema))]
+        is_custom_type_enum = False
+        customer_enum_size = 0
+        for type_descriptor, value in self.schema.items():
+            enum_attribute_type = value['type']
+            enum_attribute_name = type_descriptor
+            if is_enum_type(enum_attribute_type) and enum_attribute_name == attribute['type']:
+                is_custom_type_enum = True
+                customer_enum_size = value['size']
+
+        if is_custom_type_enum and customer_enum_size > 0:
+            const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(customer_enum_size)
+            enum_method = get_byte_convert_method_name(customer_enum_size).format(const_declare)
+            lines = ['const {0} = {1}'.format(attribute['name'], enum_method)]
+            lines += ['byteArray = byteArray.splice(0, {0})'.format(customer_enum_size)]
+        else:
+            lines = ['const {0} = {1}.loadFromBinary(Uint8Array.from(byteArray))'.format(attribute['name'],
+                                                                                         get_generated_class_name(attribute['type'],
+                                                                                                                  attribute, self.schema))]
+            lines += ['byteArray = byteArray.splice(0, {0}.getSize())'.format(attribute['name'])]
+        
         self._init_other_attribute_in_condition(attribute, 'this.', lines)
         self._add_attribute_condition_if_needed(attribute, load_from_binary_method, 'this.', lines)
 
     def _load_from_binary_flags(self, attribute, load_from_binary_method):
         size = get_attribute_size(self.schema, attribute)
-        read_method_name = 'stream.{0}()'.format(get_read_method_name(size))
+        const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
+        read_method_name = get_byte_convert_method_name(size).format(const_declare)
         reverse_byte_method = get_reverse_method_name(size).format(read_method_name)
         lines = ['this.{0} = GeneratorUtils.toSet({1}, {2})'.format(attribute['name'],
                                                                     get_class_type_from_name(
@@ -292,13 +325,12 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         return field['name'].endswith('Size') or field['name'].endswith('Count')
 
     def _generate_load_from_binary_attributes(self, attribute, load_from_binary_method):
-        attribute_name = attribute['name']
         if self.is_count_size_field(attribute):
-            read_method_name = 'stream.{0}()'.format(get_read_method_name(attribute['size']))
-            size = get_attribute_size(self.schema, attribute)
-            reverse_byte_method = get_reverse_method_name(size).format(read_method_name)
-            load_from_binary_method.add_instructions(
-                ['{0} {1} = {2}'.format(get_generated_type(self.schema, attribute), attribute_name, reverse_byte_method)])
+            const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(attribute['size'])
+            size_method = get_byte_convert_method_name(attribute['size']).format(const_declare)
+            lines = ['const {0} = {1}'.format(attribute['name'], size_method)]
+            lines += ['byteArray = byteArray.splice(0, {0})'.format(attribute['size'])]
+            load_from_binary_method.add_instructions(lines)
         else:
             load_attribute = {
                 AttributeKind.SIMPLE: self._load_from_binary_simple,
@@ -439,11 +471,14 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _add_load_from_binary_custom(self, load_from_binary_method):
         if self.base_class_name is not None:
-            load_from_binary_method.add_instructions(['return new {0}(stream)'.format(self.generated_class_name)])
+            lines = ['const superObject = {0}.loadFromBinary(Uint8Array.from(byteArray))'.format(get_generated_class_name(self.base_class_name, self.schema[self.base_class_name], self.schema))]
+            lines += ['byteArray = byteArray.splice(0, superObject.getSize())']
+            load_from_binary_method.add_instructions(lines)
 
         self._recurse_foreach_attribute(self.name, self._generate_load_from_binary_attributes,
                                         load_from_binary_method, [self.base_class_name, self._get_body_class_name()])
-        # load_from_binary_method.add_instructions(['return new {0}(stream)'.format(self.generated_class_name)])
+        load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name,
+                                                                               ', '.join(self.load_from_binary_atrribute_list))])
 
     def _add_serialize_custom(self, serialize_method):
         if self.base_class_name is not None:
@@ -486,6 +521,14 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             param_string += ', {0}'.format(param)
         return param_string
 
+    def _create_custom_variable_list(self, name, callback, condition_attribute, object_name):
+        param_list = []
+        self._recurse_foreach_attribute(name, callback, (param_list, condition_attribute), [])
+        param_string = object_name + '.' + param_list[0]
+        for param in param_list[1:]:
+            param_string += ', {0}'.format(object_name + '.' + param)
+        return param_string
+
     def _create_param_list(self, condition_attribute):
         return self._create_list(self.name, self._add_to_param, condition_attribute)
 
@@ -512,6 +555,9 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         if self.base_class_name is not None:
             constructor_method.add_instructions(
                 ['super({0})'.format(self._create_list(self.base_class_name, self._add_to_variable, condition_attribute))])
+            self.load_from_binary_atrribute_list.append(self._create_custom_variable_list(self.base_class_name,
+                                                                                          self._add_to_variable, condition_attribute,
+                                                                                          'superObject'))
 
         object_attributes = []
         self._recurse_foreach_attribute(self.name, self._add_attribute_to_list, (object_attributes, condition_attribute),
@@ -530,9 +576,13 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                                                              get_generated_class_name(variable['type'], variable, self.schema),
                                                              self._create_list(variable['type'], self._add_to_variable,
                                                                                condition_attribute))])
+                    self.load_from_binary_atrribute_list.append(self._create_custom_variable_list(variable['type'],
+                                                                                                  self._add_to_variable, condition_attribute,
+                                                                                                  variable['name']))
                     self._add_required_import(format_import(get_generated_class_name(variable['type'], variable, self.schema)))
                 else:
                     constructor_method.add_instructions(['this.{0} = {0}'.format(variable['name'])])
+                    self.load_from_binary_atrribute_list.append(variable['name'])
 
         if condition_attribute:
             condition_type_attribute = get_attribute_property_equal(self.schema, self.class_schema['layout'], 'name',

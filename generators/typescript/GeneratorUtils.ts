@@ -8,10 +8,11 @@ export class GeneratorUtils {
      * @param {Uint8Array} input A uint8 array.
      * @returns {number[]} The uint64 representation of the input.
      */
-    public static uint64FromBytes (input: Uint8Array): number[] {
+    public static bufferToUint64 (input: Uint8Array): number[] {
         if (8 !== input.length) {
             throw Error(`byte array has unexpected size '${input.length}'`);
-        }
+		}
+		input = input.reverse();
         return [GeneratorUtils.readUint32At(input, 0), GeneratorUtils.readUint32At(input, 4)];
 	}
 	
@@ -47,6 +48,25 @@ export class GeneratorUtils {
 			throw new Error('Unexpected bufferSize');
 	
 		return new Uint8Array(buffer);
+	}
+
+	/**
+     * Write uint to buffer
+     * @param {Uint8Array} buffer A uint8 array.
+     * @returns {number}
+     */
+	public static bufferToUint(buffer: Uint8Array): number {
+		const dataView = new DataView(buffer.buffer);
+		if (1 === buffer.byteLength)
+			return dataView.getUint8(0);
+	
+		else if (2 === buffer.byteLength)
+			return dataView.getUint16(0, true);
+	
+		else if (4 === buffer.byteLength)
+			return dataView.getUint32(0, true);
+	
+		throw new Error('Unexpected buffer size');
 	};
 
 	/**
@@ -70,7 +90,7 @@ export class GeneratorUtils {
 		newArray.set(array1);
 		newArray.set(array2, array1.length);
 		return newArray;
-	};
+	}
 
 	/**
      * Genreate fixed size array
@@ -88,5 +108,31 @@ export class GeneratorUtils {
 			return newArray;
 		}
 		return array;
-	};
+	}
+
+	/** Converts an unsigned byte to a signed byte with the same binary representation.
+     * @param {number} input An unsigned byte.
+     * @returns {number} A signed byte with the same binary representation as the input.
+     *
+     */
+    public static uint8ToInt8 = (input: number): number => {
+        if (0xFF < input) {
+            throw Error(`input '${input}' is out of range`);
+        }
+        return input << 24 >> 24;
+    }
+
+	/** Get bytes by given sub array size.
+	 * @param {Uint8Array} binary Binary bytes array.
+     * @param {number} size Subarray size.
+     * @returns {Uint8Array} 
+     *
+     */
+	public static getBytes(binary: Uint8Array, size: number): Uint8Array {
+		if (size > binary.length)
+			throw new RangeError();
+
+		const bytes = binary.slice(0, size);
+		return bytes;
+	}
 }
