@@ -72,7 +72,7 @@ class TypescriptFileGenerator:
             yield self.code, enum_class.get_generated_name()
 
         # write all the  helper files
-        helper_files = ['BitMaskable', 'GeneratorUtils']
+        helper_files = ['GeneratorUtils']
         for filename in helper_files:
             self._init_class()
             new_class = TypescriptStaticClassGenerator(filename)

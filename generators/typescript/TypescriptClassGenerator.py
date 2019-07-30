@@ -3,7 +3,7 @@ from .Helpers import get_attribute_kind, TypeDescriptorDisposition, get_attribut
 from .Helpers import get_generated_class_name, get_builtin_type, indent, get_attribute_size
 from .Helpers import get_generated_type, get_attribute_property_equal, AttributeKind, is_byte_type
 from .Helpers import get_read_method_name, get_reverse_method_name, get_write_method_name, is_enum_type
-from .Helpers import is_builtin_type, get_comments_from_attribute, get_import_for_type, format_import, TypeDescriptorType
+from .Helpers import is_builtin_type, get_comments_from_attribute, format_import, TypeDescriptorType
 from .TypescriptGeneratorBase import TypescriptGeneratorBase
 from .TypescriptMethodGenerator import TypescriptMethodGenerator
 
@@ -19,6 +19,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         self.enum_list = enum_list
         self.class_type = 'class'
         self.condition_list = []
+        self.condition_param = []
         self.import_list = []
         self.load_from_binary_atrribute_list = []
         self._add_required_import(format_import('GeneratorUtils'))
@@ -64,9 +65,8 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         self.class_output += ['']
 
     def _add_required_import_if_needed(self, var_type):
-        import_string = None
-        if import_string:
-            self._add_required_import(import_string)
+        if var_type not in ['number', 'Uint8Array', 'number[]']:
+            self._add_required_import(format_import(var_type))
 
     def _add_private_declaration(self, attribute, private_output):
         if not self.is_count_size_field(attribute):
@@ -75,8 +75,9 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                 private_output += [indent(line)]
             attribute_name = attribute['name']
             var_type = get_generated_type(self.schema, attribute)
+            is_conditional = self._is_attribute_conditional(attribute, self.condition_list)
             self._add_required_import_if_needed(var_type)
-            private_output += [indent('{1}: {0};'.format(var_type, attribute_name))]
+            private_output += [indent('{1}{2}: {0};'.format(var_type, attribute_name, '?' if is_conditional else ''))]
 
     @staticmethod
     def _get_generated_getter_name(attribute_name):
@@ -93,11 +94,13 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             ['return this.{0}'.format(attribute['name'])])
 
     # pylint: disable-msg=too-many-arguments
-    def _add_if_condition_for_variable_if_needed(self, attribute, writer, object_prefix, if_condition, code_lines, add_semicolon=True):
+    def _add_if_condition_for_variable_if_needed(self, attribute, writer, object_prefix,
+                                                 if_condition, code_lines, add_var_declare=False, add_semicolon=True):
         condition_type_attribute = get_attribute_property_equal(self.schema, self.class_schema['layout'], 'name', attribute['condition'])
         condition_type = '{0}.{1}'.format(get_generated_class_name(condition_type_attribute['type'], condition_type_attribute, self.schema),
                                           create_enum_name(attribute['condition_value']))
-
+        if add_var_declare:
+            writer.add_instructions(['let {0} = null'.format(attribute['name'])], True)
         writer.add_instructions(['if ({0}{1} {2} {3}) {{'.format(object_prefix, attribute['condition'], if_condition, condition_type)],
                                 False)
         for line in code_lines:
@@ -106,7 +109,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _add_method_condition(self, attribute, method_writer):
         if 'condition' in attribute:
-            code_lines = ['throw new Typescript.lang.IllegalStateException("{0} is not set to {1}.")'.format(
+            code_lines = ['throw new Error("{0} is not set to {1}.")'.format(
                 attribute['condition'], create_enum_name(attribute['condition_value']))]
             self._add_if_condition_for_variable_if_needed(attribute, method_writer, 'this.', '!=', code_lines)
 
@@ -161,12 +164,11 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             line = ''
             line += 'this.{0}.forEach((o) => size += o.getSize());'.format(attribute['name'])
         elif kind == AttributeKind.FLAGS:
-            line += '{0}.values()[0].getSize(); // {1}'.format(get_generated_class_name(attribute['type'], attribute, self.schema),
-                                                               attribute['name'])
+            line += self._get_custom_attribute_size_getter(attribute)
         else:
             line += self._get_custom_attribute_size_getter(attribute)
 
-        self._add_attribute_condition_if_needed(attribute, method_writer, 'this.', [line], False)
+        self._add_attribute_condition_if_needed(attribute, method_writer, 'this.', [line], False, False)
 
     def _get_custom_attribute_size_getter(self, attribute):
         for type_descriptor, value in self.schema.items():
@@ -237,9 +239,22 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                 if attribute['name'] != condition_attribute['name']:
                     code_lines.append('{0}{1} = {2}'.format(obj_prefix, condition_attribute['name'], get_default_value(attribute)))
 
-    def _add_attribute_condition_if_needed(self, attribute, method_writer, obj_prefix, code_lines, add_semicolon=True):
+    def _init_attribute_condition_exception(self, condition_attribute_list):
+        code_lines = []
+        condition_names = []
+        if condition_attribute_list:
+            for condition_attribute in condition_attribute_list:
+                condition_names.append('!' + condition_attribute['name'])
+            code_lines = ['if (({0}) || ({1})) {{'.format(' && '.join(condition_names).replace('!', ''), ' && '.join(condition_names))]
+            code_lines += [indent('throw new Error(\'Invalid conditional parameters\')')]
+            code_lines += ['}']
+        return code_lines
+
+    def _add_attribute_condition_if_needed(self, attribute, method_writer, obj_prefix, code_lines,
+                                           add_var_declare=False, add_semicolon=True):
         if 'condition' in attribute:
-            self._add_if_condition_for_variable_if_needed(attribute, method_writer, obj_prefix, '==', code_lines, add_semicolon)
+            self._add_if_condition_for_variable_if_needed(attribute, method_writer, obj_prefix, '==',
+                                                          code_lines, add_var_declare, add_semicolon)
         else:
             method_writer.add_instructions(code_lines, add_semicolon)
 
@@ -247,18 +262,19 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         size = get_attribute_size(self.schema, attribute)
         const_delaration = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
         read_method_name = get_byte_convert_method_name(size).format(const_delaration)
-        lines = ['const {0} = {1}'.format(attribute['name'], read_method_name)]
+        lines = ['{2}{0} = {1}'.format(attribute['name'], read_method_name, '' if self._is_conditional_attribute(attribute) else 'const ')]
         lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
-        self._init_other_attribute_in_condition(attribute, 'this.', lines)
-        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, 'this.', lines)
+        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
     def _load_from_binary_buffer(self, attribute, load_from_binary_method):
         size = get_attribute_size(self.schema, attribute)
-        lines = ['const {0} = GeneratorUtils.getBytes(Uint8Array.from(byteArray), {1})'.format(attribute['name'], size)]
+        lines = ['{2}{0} = GeneratorUtils.getBytes(Uint8Array.from(byteArray), {1})'
+                 .format(attribute['name'], size, '' if self._is_conditional_attribute(attribute) else 'const ')]
         lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
         load_from_binary_method.add_instructions(lines)
+        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
@@ -273,12 +289,13 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             const_delaration = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), 1)'
             read_method_name = get_byte_convert_method_name(1).format(const_delaration)
             load_from_binary_method.add_instructions(
-                [indent('const item = {0}'.format(read_method_name))])
+                [indent('{1}item = {0}'.format(read_method_name, '' if self._is_conditional_attribute(attribute) else 'const '))])
             load_from_binary_method.add_instructions([indent('{0}.add(stream.{1}())'.format(attribute_name, get_read_method_name(1)))])
         else:
             load_from_binary_method.add_instructions(
-                [indent('const item = {0}.loadFromBinary(Uint8Array.from(byteArray))'.format(get_generated_class_name(attribute_typename, attribute,
-                                                                                                                      self.schema)))])
+                [indent('{1}item = {0}.loadFromBinary(Uint8Array.from(byteArray))'
+                        .format(get_generated_class_name(attribute_typename, attribute, self.schema),
+                                '' if self._is_conditional_attribute(attribute) else 'const '))])
         load_from_binary_method.add_instructions([indent('{0}.push(item)'.format(attribute_name))])
         load_from_binary_method.add_instructions([indent('byteArray = byteArray.splice(0, item.getSize())')])
         load_from_binary_method.add_instructions(['}'], False)
@@ -296,29 +313,25 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         if is_custom_type_enum and customer_enum_size > 0:
             const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(customer_enum_size)
             enum_method = get_byte_convert_method_name(customer_enum_size).format(const_declare)
-            lines = ['const {0} = {1}'.format(attribute['name'], enum_method)]
+            lines = ['{2}{0} = {1}'.format(attribute['name'], enum_method,
+                                           '' if self._is_conditional_attribute(attribute) else 'const ')]
             lines += ['byteArray = byteArray.splice(0, {0})'.format(customer_enum_size)]
         else:
-            lines = ['const {0} = {1}.loadFromBinary(Uint8Array.from(byteArray))'.format(attribute['name'],
-                                                                                         get_generated_class_name(attribute['type'],
-                                                                                                                  attribute, self.schema))]
+            lines = ['{2}{0} = {1}.loadFromBinary(Uint8Array.from(byteArray))'
+                     .format(attribute['name'],get_generated_class_name(attribute['type'], attribute, self.schema),
+                             '' if self._is_conditional_attribute(attribute) else 'const ')]
             lines += ['byteArray = byteArray.splice(0, {0}.getSize())'.format(attribute['name'])]
-        
-        self._init_other_attribute_in_condition(attribute, 'this.', lines)
-        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, 'this.', lines)
+        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
 
     def _load_from_binary_flags(self, attribute, load_from_binary_method):
         size = get_attribute_size(self.schema, attribute)
         const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
         read_method_name = get_byte_convert_method_name(size).format(const_declare)
-        reverse_byte_method = get_reverse_method_name(size).format(read_method_name)
-        lines = ['this.{0} = GeneratorUtils.toSet({1}, {2})'.format(attribute['name'],
-                                                                    get_class_type_from_name(
-                                                                        get_generated_class_name(attribute['type'], attribute,
-                                                                                                 self.schema)),
-                                                                    reverse_byte_method)]
-        self._init_other_attribute_in_condition(attribute, 'this.', lines)
-        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, 'this.', lines)
+        lines = ['{2}{0} = {1}'.format(attribute['name'], read_method_name, '' if self._is_conditional_attribute(attribute) else 'const ')]
+        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
+        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
+        if len(self.load_from_binary_atrribute_list) <= 1:
+            load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
     @staticmethod
     def is_count_size_field(field):
@@ -345,19 +358,14 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _serialize_attribute_simple(self, attribute, serialize_method):
         size = get_attribute_size(self.schema, attribute)
-        lines = []
-        if (size < 8):
-            method = '{0}(this.{1}(), {2})'.format(get_read_method_name(size),
-                                                   self._get_generated_getter_name(attribute['name']),
-                                                   size)
-        else:
-            method = '{0}(this.{1}())'.format(get_read_method_name(size),
-                                              self._get_generated_getter_name(attribute['name']))
-        # reverse_method = get_reverse_method_name(size).format('new Uint8Array(this.' +
-        #                                                       self._get_generated_getter_name(attribute['name'] + '())'))
-        lines.append('const {0}Bytes = GeneratorUtils.fitByteArray({1}, {2});'.format(attribute['name'], method, size))
-        lines.append('newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute['name']+'Bytes'))
-        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines)
+        method = '{0}(this.{1}(), {2})'.format(get_read_method_name(size),
+                                               self._get_generated_getter_name(attribute['name']),
+                                               size) if size < 8 else '{0}(this.{1}())'.format(get_read_method_name(size),
+                                                                                               self._get_generated_getter_name(
+                                                                                                   attribute['name']))
+        lines = ['const {0}Bytes = GeneratorUtils.fitByteArray({1}, {2});'.format(attribute['name'], method, size)]
+        lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute['name']+'Bytes')]
+        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
     def _serialize_attribute_buffer(self, attribute, serialize_method):
         attribute_size = attribute['size']
@@ -409,23 +417,20 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             lines = ['const {0} = GeneratorUtils.fitByteArray(this.{1}.serialize(), this.{1}.getSize())'.format(attribute_bytes_name,
                                                                                                                 attribute_name)]
         lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute_bytes_name)]
-        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines)
+        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
     def _serialize_attribute_flags(self, attribute, serialize_method):
         attribute_name = attribute['name']
         size = get_attribute_size(self.schema, attribute)
         enum_type = get_builtin_type(size)
-        line = '{0} bitMask = '.format(enum_type)
-        if size < 8:  # cast is required since the bitmask is a long
-            line += '({0}) '.format(enum_type)
-        line += 'GeneratorUtils.toLong({0}, this.{1})'.format(
-            get_class_type_from_name(get_generated_class_name(attribute['type'], attribute, self.schema)),
-            attribute_name)
-
-        lines = [line]
-        reverse_byte_method = get_reverse_method_name(size).format('bitMask')
-        lines += ['dataOutputStream.{0}({1})'.format(get_write_method_name(size), reverse_byte_method)]
-        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines)
+        method = '{0}(this.{1}(), {2})'.format(get_read_method_name(size),
+                                               self._get_generated_getter_name(attribute['name']),
+                                               size) if size < 8 else '{0}(this.{1}())'.format(get_read_method_name(size),
+                                                                                               self._get_generated_getter_name(
+                                                                                                   attribute['name']))
+        lines = ['const {0}Bytes = GeneratorUtils.fitByteArray({1}, {2});'.format(attribute['name'], method, size)]
+        lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute['name']+'Bytes')]
+        self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
     def _generate_serialize_attributes(self, attribute, serialize_method):
         attribute_name = attribute['name']
@@ -471,12 +476,14 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _add_load_from_binary_custom(self, load_from_binary_method):
         if self.base_class_name is not None:
-            lines = ['const superObject = {0}.loadFromBinary(Uint8Array.from(byteArray))'.format(get_generated_class_name(self.base_class_name, self.schema[self.base_class_name], self.schema))]
+            lines = ['const superObject = {0}.loadFromBinary(Uint8Array.from(byteArray))'
+                     .format(get_generated_class_name(self.base_class_name, self.schema[self.base_class_name], self.schema))]
             lines += ['byteArray = byteArray.splice(0, superObject.getSize())']
             load_from_binary_method.add_instructions(lines)
 
         self._recurse_foreach_attribute(self.name, self._generate_load_from_binary_attributes,
                                         load_from_binary_method, [self.base_class_name, self._get_body_class_name()])
+
         load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name,
                                                                                ', '.join(self.load_from_binary_atrribute_list))])
 
@@ -494,47 +501,75 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             param_list.append(attribute_name)
 
     @staticmethod
-    def _should_add_base_on_condition(attribute, condition_attribute):
+    def _should_add_base_on_condition(attribute, condition_attribute_list):
         attribute_name = attribute['name']
-        if condition_attribute is not None:
-            if 'condition' in attribute:
-                if condition_attribute['condition'] == attribute['condition'] and condition_attribute['name'] != attribute_name:
-                    return False  # Skip all other conditions attribute
-            elif condition_attribute['condition'] == attribute_name:
-                return False
+        if condition_attribute_list:
+            for condition_attribute in condition_attribute_list:
+                if condition_attribute['condition'] == attribute_name:
+                    return False
         return True
 
+    def _is_attribute_conditional(self, attribute, condition_attribute_list):
+        if condition_attribute_list:
+            for condition in condition_attribute_list:
+                if attribute['name'] == condition['name'] and attribute['type'] == condition['type']:
+                    return True
+        return False
+
     def _add_to_param(self, attribute, context):
-        param_list, condition_attribute = context
-        if self._should_declaration(attribute) and self._should_add_base_on_condition(attribute, condition_attribute):
+        param_list, condition_attribute_list = context
+        if self._should_declaration(attribute) and self._should_add_base_on_condition(attribute, condition_attribute_list):
+            is_condition_attribute = self._is_attribute_conditional(attribute, condition_attribute_list)
             attribute_name = attribute['name']
             attribute_type = get_generated_type(self.schema, attribute)
             if attribute_type is not 'number' and attribute_type is not 'Uint8Array':
                 self._add_required_import(format_import(attribute_type))
-            param_list.append('{1}: {0}'.format(attribute_type, attribute_name))
+            param = '{1}{2}: {0}'.format(attribute_type,
+                                         attribute_name, '?' if is_condition_attribute else '')
+            if is_condition_attribute:
+                self.condition_param.append(param)
+            else:
+                param_list.append(param)
 
-    def _create_list(self, name, callback, condition_attribute):
+    def _create_list(self, name, callback, condition_attribute_list):
         param_list = []
-        self._recurse_foreach_attribute(name, callback, (param_list, condition_attribute), [])
+        self._recurse_foreach_attribute(name, callback, (param_list, condition_attribute_list), [])
         param_string = param_list[0]
         for param in param_list[1:]:
             param_string += ', {0}'.format(param)
+
+        for condition_param in self.condition_param:
+            param_string += ', {0}'.format(condition_param)
+
+        self.condition_param = []
         return param_string
 
-    def _create_custom_variable_list(self, name, callback, condition_attribute, object_name):
+    def _reorder_condition_attribute_if_needed(self, original_list, condition_attribute_list):
+        ordered_list = original_list
+        if condition_attribute_list:
+            condition_vars = list(map(lambda x: x['name'], condition_attribute_list))
+            if set(condition_vars).issubset(set(original_list)):
+                condition_list = [x for x in original_list if x not in condition_vars]
+                condition_list.extend(condition_vars)
+                ordered_list = condition_list
+        return ordered_list
+
+    def _create_custom_variable_list(self, name, callback, condition_attribute_list, object_name):
         param_list = []
-        self._recurse_foreach_attribute(name, callback, (param_list, condition_attribute), [])
+        self._recurse_foreach_attribute(name, callback, (param_list, condition_attribute_list), [])
+        param_list = self._reorder_condition_attribute_if_needed(param_list, condition_attribute_list)
+
         param_string = object_name + '.' + param_list[0]
         for param in param_list[1:]:
             param_string += ', {0}'.format(object_name + '.' + param)
         return param_string
 
-    def _create_param_list(self, condition_attribute):
-        return self._create_list(self.name, self._add_to_param, condition_attribute)
+    def _create_param_list(self, condition_attribute_list):
+        return self._create_list(self.name, self._add_to_param, condition_attribute_list)
 
     def _add_name_comment(self, attribute, context):
-        comment_list, condition_attribute = context
-        if self._should_declaration(attribute) and self._should_add_base_on_condition(attribute, condition_attribute):
+        comment_list, condition_attribute_list = context
+        if self._should_declaration(attribute) and self._should_add_base_on_condition(attribute, condition_attribute_list):
             comment_list.append((attribute['name'], get_comments_from_attribute(attribute, False)))
 
     def _create_name_comment_list(self, name, condition_variable):
@@ -543,61 +578,83 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         return name_comment_list
 
     def _add_attribute_to_list(self, attribute, context):
-        attribute_list, condition_attribute = context
-        if self._should_add_base_on_condition(attribute, condition_attribute):
+        attribute_list, condition_attribute_list = context
+        if self._should_add_base_on_condition(attribute, condition_attribute_list):
             attribute_list.append(attribute)
 
     def _add_constructor(self):
         self._add_constructor_internal(None)
 
-    def _add_constructor_internal(self, condition_attribute):
-        constructor_method = TypescriptMethodGenerator('public', '', 'constructor', [self._create_param_list(condition_attribute)], None)
+    def _get_inline_method_factory(self, variable, condition_attribute_list):
+        if condition_attribute_list:
+            condition_vars = list(map(lambda x: x['name'], condition_attribute_list))
+            var_list = [x for x in self._create_list(variable['type'], self._add_to_variable,
+                                                     condition_attribute_list).split(', ') if x not in condition_vars]
+            var_list.extend(condition_vars)
+            return 'this.{0} = new {1}({2})'.format(variable['name'],
+                                                    get_generated_class_name(variable['type'], variable, self.schema),
+                                                    ', '.join(var_list)
+                                                    )
+        else:
+            return 'this.{0} = {1}.create({2})'.format(variable['name'],
+                                                       get_generated_class_name(variable['type'], variable, self.schema),
+                                                       self._create_list(variable['type'],
+                                                                         self._add_to_variable,
+                                                                         condition_attribute_list))
+
+    def _add_constructor_internal(self, condition_attribute_list):
+        constructor_method = TypescriptMethodGenerator('public', '', 'constructor',
+                                                       [self._create_param_list(condition_attribute_list)], None)
         if self.base_class_name is not None:
             constructor_method.add_instructions(
-                ['super({0})'.format(self._create_list(self.base_class_name, self._add_to_variable, condition_attribute))])
+                ['super({0})'.format(self._create_list(self.base_class_name, self._add_to_variable, condition_attribute_list))])
             self.load_from_binary_atrribute_list.append(self._create_custom_variable_list(self.base_class_name,
-                                                                                          self._add_to_variable, condition_attribute,
+                                                                                          self._add_to_variable, condition_attribute_list,
                                                                                           'superObject'))
 
         object_attributes = []
-        self._recurse_foreach_attribute(self.name, self._add_attribute_to_list, (object_attributes, condition_attribute),
+        self._recurse_foreach_attribute(self.name, self._add_attribute_to_list, (object_attributes, condition_attribute_list),
                                         [self.base_class_name, self._get_body_class_name()])
-        # for attribute in object_attributes:
-        #     if self._is_inline_class(attribute):
-        #         continue
-        #     if 'size' not in attribute or not is_builtin_type(attribute['type'], attribute['size']):
-        #         constructor_method.add_instructions(['GeneratorUtils.notNull({0}, "{0} is null")'.format(attribute['name'])])
+        if condition_attribute_list:
+            constructor_method.add_instructions(self._init_attribute_condition_exception(condition_attribute_list), False)
 
         for variable in object_attributes:
             if self._should_declaration(variable):
                 if self._is_inline_class(variable):
                     constructor_method.add_instructions(
-                        ['this.{0} = {1}.create({2})'.format(variable['name'],
-                                                             get_generated_class_name(variable['type'], variable, self.schema),
-                                                             self._create_list(variable['type'], self._add_to_variable,
-                                                                               condition_attribute))])
+                        [self._get_inline_method_factory(variable, condition_attribute_list)])
                     self.load_from_binary_atrribute_list.append(self._create_custom_variable_list(variable['type'],
-                                                                                                  self._add_to_variable, condition_attribute,
+                                                                                                  self._add_to_variable,
+                                                                                                  condition_attribute_list,
                                                                                                   variable['name']))
                     self._add_required_import(format_import(get_generated_class_name(variable['type'], variable, self.schema)))
                 else:
                     constructor_method.add_instructions(['this.{0} = {0}'.format(variable['name'])])
                     self.load_from_binary_atrribute_list.append(variable['name'])
 
-        if condition_attribute:
-            condition_type_attribute = get_attribute_property_equal(self.schema, self.class_schema['layout'], 'name',
-                                                                    condition_attribute['condition'], False)
-            if condition_type_attribute:
-                condition_type_value = '{0}.{1}'.format(
-                    get_generated_class_name(condition_type_attribute['type'], condition_type_attribute, self.schema),
-                    create_enum_name(condition_attribute['condition_value']))
-                constructor_method.add_instructions(['this.{0} = {1}'.format(condition_attribute['condition'], condition_type_value)])
-                code_lines = []
-                self._init_other_attribute_in_condition(condition_attribute, 'this.', code_lines)
-                constructor_method.add_instructions(code_lines)
+        self.load_from_binary_atrribute_list = self._reorder_condition_attribute_if_needed(self.load_from_binary_atrribute_list,
+                                                                                           condition_attribute_list)
 
-        self._add_method_documentation(constructor_method, 'Constructor.', self._create_name_comment_list(self.name, condition_attribute),
-                                       None)
+        if condition_attribute_list:
+            # constructor_method.add_instructions(self._init_attribute_condition_exception(condition_attribute_list), False)
+            for condition_attribute in condition_attribute_list:
+                condition_type_attribute = get_attribute_property_equal(self.schema, self.class_schema['layout'], 'name',
+                                                                        condition_attribute['condition'], False)
+                if condition_type_attribute:
+                    self._add_required_import(format_import(get_generated_class_name(condition_type_attribute['type'],
+                                                                                     condition_type_attribute, self.schema)))
+                    condition_type_value = '{0}.{1}'.format(
+                        get_generated_class_name(condition_type_attribute['type'], condition_type_attribute, self.schema),
+                        create_enum_name(condition_attribute['condition_value']))
+
+                    constructor_method.add_instructions(['if ({0}) {{'.format(condition_attribute['name'])], False)
+                    constructor_method.add_instructions([indent('this.{0} = {1}'.format(condition_attribute['condition'],
+                                                                                        condition_type_value))])
+                    constructor_method.add_instructions(['}'], False)
+                    constructor_method.add_instructions([])
+
+        self._add_method_documentation(constructor_method, 'Constructor.',
+                                       self._create_name_comment_list(self.name, condition_attribute_list), None)
 
         self._add_method(constructor_method)
 
@@ -615,13 +672,46 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                                        'Instance of {0}.'.format(self.generated_class_name))
         self._add_method(factory)
 
+    def _get_condition_factory_method_name(self, condition_attribute):
+        condition_value = create_enum_name(condition_attribute['condition_value']).lower()
+        return 'create' + capitalize_first_character(condition_value)
+
+    def _get_condition_factory_method_param(self, condition_attribute, condition_attribute_list):
+        param_list = [p for p in self._create_param_list(condition_attribute_list).split(',')
+                      if condition_attribute['name'] in p or '?' not in p]
+        return ','.join(param_list).replace('?', '')
+
+    def _get_condition_factory_method_impl(self, condition_attribute, condition_attribute_list):
+        condition_vars = list(map(lambda x: x['name'], condition_attribute_list))
+        var_list = [x for x in self._create_list(self.name, self._add_to_variable,
+                                                 condition_attribute_list).split(', ') if x not in condition_vars]
+        var_list.extend(['null' if x != condition_attribute['name'] else x for x in condition_vars])
+        return ', '.join(var_list)
+
+    def _add_factory_method_condition(self, condition_attribute_list):
+        if condition_attribute_list:
+            for condition_attribute in condition_attribute_list:
+                # other_condition_vars = [x for x in condition_vars if condition_attribute['name'] not in x]
+
+                factory = TypescriptMethodGenerator('public', self.generated_class_name,
+                                                    self._get_condition_factory_method_name(condition_attribute),
+                                                    [self._get_condition_factory_method_param(condition_attribute,
+                                                                                              condition_attribute_list)],
+                                                    '',
+                                                    True)
+                factory.add_instructions(['return new {0}({1})'.format(
+                    self.generated_class_name, self._get_condition_factory_method_impl(condition_attribute,
+                                                                                       condition_attribute_list))])
+                self._add_method_documentation(factory, 'Creates an instance of {0}.'.format(self.generated_class_name),
+                                               self._create_name_comment_list(self.name, condition_attribute_list),
+                                               'Instance of {0}.'.format(self.generated_class_name))
+                self._add_method(factory)
+
     def _add_constructors(self):
-        for attribute in self.condition_list:
-            self._add_constructor_internal(attribute)
+        self._add_constructor_internal(self.condition_list)
 
     def _add_factory_methods(self):
-        for attribute in self.condition_list:
-            self._add_factory_method_internal(attribute)
+        self._add_factory_method_condition(self.condition_list)
 
     @staticmethod
     def should_generate_class(name):
