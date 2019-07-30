@@ -274,7 +274,6 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                  .format(attribute['name'], size, '' if self._is_conditional_attribute(attribute) else 'const ')]
         lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
         load_from_binary_method.add_instructions(lines)
-        self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
 
