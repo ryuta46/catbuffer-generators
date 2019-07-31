@@ -30,8 +30,8 @@ def get_attribute_if_size(attribute_name, attributes, schema):
 
 def get_builtin_type(size):
     if size == 8:
-        return 'number'
-    return 'number[]'
+        return 'number[]'
+    return 'number'
 
 
 def get_read_method_name(size):
