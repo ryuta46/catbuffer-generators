@@ -265,6 +265,4 @@ class TypeScriptGenerator:
             for import_file, import_value in self.imports.items():
                 new_file.append('import {0} from \'{1}\''.format(import_value, import_file.replace('.ts', '')))
             new_file += [''] + generated_code
-
-
         return new_file

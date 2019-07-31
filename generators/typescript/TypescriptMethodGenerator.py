@@ -1,5 +1,6 @@
 from .Helpers import indent
 
+
 class TypescriptMethodGenerator:
     """Typescript method generator"""
 

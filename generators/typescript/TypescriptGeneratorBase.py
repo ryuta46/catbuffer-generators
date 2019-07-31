@@ -1,6 +1,5 @@
 # pylint: disable=too-few-public-methods
 from abc import ABC, abstractmethod
-
 from .Helpers import get_generated_class_name, get_comments_from_attribute, indent, format_description
 from .TypescriptMethodGenerator import TypescriptMethodGenerator
 

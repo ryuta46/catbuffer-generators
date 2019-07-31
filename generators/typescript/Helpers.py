@@ -140,17 +140,6 @@ def get_reverse_method_name(size):
     return method_name
 
 
-def get_write_method_name(size):
-    if isinstance(size, str) or size > 8:
-        method_name = 'write'
-    else:
-        typesize_methodname = {1: 'writeByte',
-                               2: 'writeShort',
-                               4: 'writeInt',
-                               8: 'writeLong'}
-        method_name = typesize_methodname[size]
-    return method_name
-
 def get_byte_convert_method_name(size):
     if isinstance(size, str) or size > 8:
         method_name = ''
@@ -161,6 +150,7 @@ def get_byte_convert_method_name(size):
                                8: 'GeneratorUtils.bufferToUint64({0})'}
         method_name = typesize_methodname[size]
     return method_name
+
 
 def get_generated_type(schema, attribute):
     typename = attribute['type']
@@ -179,6 +169,7 @@ def get_generated_type(schema, attribute):
         return '{0}'.format(typename)
 
     return typename
+
 
 def append_period_if_needed(line):
     return line if line.endswith('.') else line + '.'
@@ -220,6 +211,7 @@ def get_default_value(attribute):
 
 def get_class_type_from_name(type_name):
     return '{0}.ts'.format(type_name)
+
 
 def format_import(attribute_type):
     return '{{ {0} }} from \'./{0}\''.format(attribute_type).replace('[]', '')

@@ -7,6 +7,7 @@ from .Helpers import get_comments_from_attribute, format_import
 from .TypescriptGeneratorBase import TypescriptGeneratorBase
 from .TypescriptMethodGenerator import TypescriptMethodGenerator
 
+
 def capitalize_first_character(string):
     return string[0].upper() + string[1:]
 
@@ -17,9 +18,9 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
     def __init__(self, name, schema, class_schema, enum_list):
         super(TypescriptClassGenerator, self).__init__(name, schema, class_schema)
         self.enum_list = enum_list
+        self.class_type = 'class'
         self.condition_list = []
         self.condition_param = []
-        self.import_list = []
         self.load_from_binary_atrribute_list = []
         self._add_required_import(format_import('GeneratorUtils'))
 
@@ -39,7 +40,6 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         if self._is_inline_class(attribute) and self.should_generate_class(attribute['type']):
             self.base_class_name = attribute['type']
             self.finalized_class = True
-            self.import_list.append(self.base_class_name)
             return True
         return False
 

@@ -7,6 +7,7 @@ from .TypescriptDefineTypeClassGenerator import TypescriptDefineTypeClassGenerat
 from .TypescriptEnumGenerator import TypescriptEnumGenerator
 from .TypescriptStaticClassGenerator import TypescriptStaticClassGenerator
 
+
 class TypescriptFileGenerator:
     """Typescript file generator"""
     enum_class_list = {}
