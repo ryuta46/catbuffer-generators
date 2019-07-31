@@ -22,12 +22,10 @@ class TypeScriptBlockGenerator:
         self.iterator = None
         self.instructions = []
 
-
     def wrap(self, block_type, rule, iterator=None):
         self.type = block_type
         self.rule = rule
         self.iterator = iterator
-
 
     def get_instructions(self):
         if self.type is not BlockType.NONE:
@@ -44,10 +42,8 @@ class TypeScriptBlockGenerator:
 
         return self.instructions
 
-
     def add_instructions(self, instructions):
         self.instructions += instructions
-
 
     def add_block(self, block):
         self.add_instructions(block.get_instructions())

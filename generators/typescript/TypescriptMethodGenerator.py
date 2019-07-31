@@ -27,18 +27,14 @@ class TypescriptMethodGenerator:
         self._indent_num = 1
         self.documentation_output = []
 
-
     def decrement_indent(self):
         self._indent_num -= 1
-
 
     def increment_indent(self):
         self._indent_num += 1
 
-
     def get_method(self):
         return self.documentation_output + self.annotation_output + self.method_output + ['}']
-
 
     def add_instructions(self, method_instructions, add_semicolon=True):
         for instruction in method_instructions:
@@ -46,11 +42,9 @@ class TypescriptMethodGenerator:
                 instruction += ';'
             self.method_output.append(indent(instruction, self._indent_num))
 
-
     def add_documentations(self, method_documentations):
         for documentation in method_documentations:
             self.documentation_output.append(documentation)
-
 
     def add_annotation(self, method_annotation):
         self.annotation_output.append(method_annotation)

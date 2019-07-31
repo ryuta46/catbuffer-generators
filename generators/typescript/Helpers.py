@@ -10,6 +10,7 @@ def indent(code, n_indents=1):
     indented = ' ' * 4 * n_indents + code
     return indented
 
+
 def get_attribute_property_equal(schema, attribute_list, attribute_name, attribute_value, recurse=True):
     for current_attribute in attribute_list:
         if attribute_name in current_attribute and current_attribute[attribute_name] == attribute_value:
@@ -20,6 +21,7 @@ def get_attribute_property_equal(schema, attribute_list, attribute_name, attribu
             if value is not None:
                 return value
     return None
+
 
 def get_attribute_if_size(attribute_name, attributes, schema):
     value = get_attribute_property_equal(schema, attributes, 'size', attribute_name)
@@ -90,6 +92,7 @@ def create_enum_name(name):
     enum_name = name[0] + ''.join('_' + x if x.isupper() else x for x in name[1:])
     return enum_name.upper()
 
+
 def get_comments_from_attribute(attribute, formatted=True):
     comment_text = attribute['comments'].strip() if 'comments' in attribute else ''
     if not comment_text and 'name' in attribute:
@@ -110,6 +113,8 @@ def get_default_value(attribute):
 
 def format_import(attribute_type):
     return '{{ {0} }} from \'./{0}\''.format(attribute_type).replace('[]', '')
+
+
 class TypeDescriptorType(Enum):
     """Type descriptor enum for Typescript generator"""
     Byte = 'byte'
@@ -129,11 +134,14 @@ def is_builtin_type(typename, size):
     # byte up to long are passed as 'byte' with size set to proper value
     return not isinstance(size, str) and is_byte_type(typename) and size <= 8
 
+
 def is_enum_type(typename):
     return typename == TypeDescriptorType.Enum.value
 
+
 def is_struct_type(typename):
     return typename == TypeDescriptorType.Struct.value
+
 
 def is_byte_type(typename):
     return typename == TypeDescriptorType.Byte.value
@@ -155,6 +163,7 @@ class AttributeType(Enum):
 
     UNKNOWN = 100
 
+
 def get_attribute_size(schema, attribute_value):
     if 'size' not in attribute_value and not is_byte_type(attribute_value['type']) and not is_enum_type(attribute_value['type']):
         attr = schema[attribute_value['type']]
@@ -162,6 +171,7 @@ def get_attribute_size(schema, attribute_value):
             return attr['size']
         return 1
     return attribute_value['size']
+
 
 def get_real_attribute_type(attribute):
     attribute_type = attribute['type']
@@ -187,6 +197,7 @@ def get_real_attribute_type(attribute):
         if is_builtin_type(attribute_type, attribute_size):
             return AttributeType.SIMPLE
     return AttributeType.BUFFER
+
 
 def is_flags_enum(name):
     return name.endswith('Flags')

@@ -12,10 +12,12 @@ class TypeDescriptorDisposition(Enum):
     Inline = 'inline'
     Const = 'const'
 
+
 class TypeDescriptorType(Enum):
     Byte = 'byte'
     Struct = 'struct'
     Enum = 'enum'
+
 
 def _get_attribute_name_if_is_sizeof(attribute_name, attributes):
     for attribute_val in attributes:
@@ -54,19 +56,17 @@ class TypeScriptGenerator:
                 return True
         return False
 
-    def _get_type_size(self, attribute):
-        if (
-                attribute['type'] != TypeDescriptorType.Byte.value and
-                attribute['type'] != TypeDescriptorType.Enum.value):
-            return self.schema[attribute['type']]['size']
-        return attribute['size']
+    def _get_type_size(self, attribute_value):
+        if attribute_value['type'] != TypeDescriptorType.Byte.value and attribute_value['type'] != TypeDescriptorType.Enum.value:
+            return self.schema[attribute_value['type']]['size']
+        return attribute_value['size']
 
     def _recursive_inlines_interation(self, attribute_function_generator, attributes):
         for attribute in attributes:
             if 'disposition' in attribute:
-                if  TypeDescriptorDisposition.Inline.value == attribute['disposition']:
+                if TypeDescriptorDisposition.Inline.value == attribute['disposition']:
                     self._recursive_inlines_interation(attribute_function_generator, self.schema[attribute['type']]['layout'])
-                elif  TypeDescriptorDisposition.Const.value == attribute['disposition']:
+                elif TypeDescriptorDisposition.Const.value == attribute['disposition']:
                     pass
             else:
                 attribute_function_generator(attribute, _get_attribute_name_if_is_sizeof(attribute['name'], attributes))
