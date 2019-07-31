@@ -1,6 +1,6 @@
 from .Helpers import create_enum_name, get_default_value, get_comment_from_name
 from .Helpers import get_attribute_kind, TypeDescriptorDisposition, get_attribute_if_size, get_byte_convert_method_name
-from .Helpers import get_generated_class_name, get_builtin_type, indent, get_attribute_size
+from .Helpers import get_generated_class_name, indent, get_attribute_size
 from .Helpers import get_generated_type, get_attribute_property_equal, AttributeKind, is_byte_type
 from .Helpers import get_read_method_name, is_enum_type
 from .Helpers import get_comments_from_attribute, format_import
@@ -515,7 +515,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             is_condition_attribute = self._is_attribute_conditional(attribute, condition_attribute_list)
             attribute_name = attribute['name']
             attribute_type = get_generated_type(self.schema, attribute)
-            if attribute_type is not 'number' and attribute_type is not 'Uint8Array':
+            if attribute_type not in ['number', 'Uint8Array']:
                 self._add_required_import(format_import(attribute_type))
             param = '{1}{2}: {0}'.format(attribute_type,
                                          attribute_name, '?' if is_condition_attribute else '')
@@ -537,7 +537,8 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         self.condition_param = []
         return param_string
 
-    def _reorder_condition_attribute_if_needed(self, original_list, condition_attribute_list):
+    @staticmethod
+    def _reorder_condition_attribute_if_needed(original_list, condition_attribute_list):
         ordered_list = original_list
         if condition_attribute_list:
             condition_vars = list(map(lambda x: x['name'], condition_attribute_list))
@@ -588,12 +589,11 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                                                     get_generated_class_name(variable['type'], variable, self.schema),
                                                     ', '.join(var_list)
                                                     )
-        else:
-            return 'this.{0} = {1}.create({2})'.format(variable['name'],
-                                                       get_generated_class_name(variable['type'], variable, self.schema),
-                                                       self._create_list(variable['type'],
-                                                                         self._add_to_variable,
-                                                                         condition_attribute_list))
+        return 'this.{0} = {1}.create({2})'.format(variable['name'],
+                                                   get_generated_class_name(variable['type'], variable, self.schema),
+                                                   self._create_list(variable['type'],
+                                                                     self._add_to_variable,
+                                                                     condition_attribute_list))
 
     def _add_constructor_internal(self, condition_attribute_list):
         constructor_method = TypescriptMethodGenerator('public', '', 'constructor',
