@@ -77,7 +77,8 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             var_type = get_generated_type(self.schema, attribute)
             is_conditional = self._is_attribute_conditional(attribute, self.condition_list)
             self._add_required_import_if_needed(var_type)
-            private_output += [indent('{1}{2}: {0};'.format(var_type, attribute_name, '?' if is_conditional else ''))]
+            private_output += [indent('{1}{2}: {0}{3};'.format(var_type, attribute_name, '?' if is_conditional else '',
+                                                               ' = 0' if attribute['name'] == 'size' else ''))]
 
     @staticmethod
     def _get_generated_getter_name(attribute_name):
@@ -184,20 +185,13 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             new_getter.add_instructions(['let size: {0} = super.getSize()'.format(return_type)])
         else:
             new_getter.add_instructions(['let size: {0} = 0'.format(return_type)])
-        self._recurse_foreach_attribute(self.name, self._add_size_value, new_getter, [self.base_class_name, self._get_body_class_name()])
+        self._recurse_foreach_attribute(self.name, self._add_size_value, new_getter,
+                                        [self.base_class_name, self._get_body_class_name()])
         new_getter.add_instructions(['return size'])
-
-    def _add_stream_size_getter(self):
-        new_getter = TypescriptMethodGenerator('protected', 'number', 'getStreamSize', [])
-        new_getter.add_instructions(['return this.size'])
-        self._add_method_documentation(new_getter, 'Gets the size if created from a stream otherwise zero', [], 'Object size from stream')
-        self._add_method(new_getter)
 
     def _add_getters(self, attribute, schema):
         if self._should_declaration(attribute):
             self._add_getter(attribute, schema)
-        elif attribute['name'] == 'size':
-            self._add_stream_size_getter()
 
     @staticmethod
     def _get_name_from_type(type_name):
@@ -362,17 +356,14 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                                                size) if size < 8 else '{0}(this.{1}())'.format(get_read_method_name(size),
                                                                                                self._get_generated_getter_name(
                                                                                                    attribute['name']))
-        lines = ['const {0}Bytes = GeneratorUtils.fitByteArray({1}, {2});'.format(attribute['name'], method, size)]
+        lines = ['const {0}Bytes = {1}'.format(attribute['name'], method)]
         lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute['name']+'Bytes')]
         self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
     def _serialize_attribute_buffer(self, attribute, serialize_method):
-        attribute_size = attribute['size']
         attribute_name = attribute['name']
-        method = 'GeneratorUtils.fitByteArray(this.{0}, {1}'.format(attribute_name,
-                                                                    'this.' + attribute_name +
-                                                                    '.length' if isinstance(attribute_size, str) else attribute_size)
-        line = 'newArray = GeneratorUtils.concatTypedArrays(newArray, {0}));'.format(method)
+        method = 'this.{0}'.format(attribute_name)
+        line = 'newArray = GeneratorUtils.concatTypedArrays(newArray, {0});'.format(method)
         serialize_method.add_instructions([line], False)
 
     @staticmethod
@@ -381,19 +372,18 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _serialize_attribute_array(self, attribute, serialize_method):
         attribute_typename = attribute['type']
-        attribute_size = attribute['size']
         attribute_name = attribute['name']
         serialize_method.add_instructions(['this.{0}.forEach((item) => {{'.format(attribute_name)], False)
 
         if is_byte_type(attribute_typename):
-            byte_method = 'GeneratorUtils.fitByteArray(this.{0}, {1}'.format(attribute_name, attribute_size)
-            byte_line = 'newArray = GeneratorUtils.concatTypedArrays(newArray, {0}));'.format(byte_method)
+            byte_method = 'this.{0}'.format(attribute_name)
+            byte_line = 'newArray = GeneratorUtils.concatTypedArrays(newArray, {0});'.format(byte_method)
             serialize_method.add_instructions(
                 [indent(byte_line)])
         else:
             attribute_bytes_name = self._get_serialize_name(attribute_name)
             serialize_method.add_instructions(
-                [indent('const {0} = GeneratorUtils.fitByteArray(item.serialize(), item.getSize())'.format(attribute_bytes_name))])
+                [indent('const {0} = item.serialize()'.format(attribute_bytes_name))])
             serialize_method.add_instructions(
                 [indent('newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute_bytes_name))])
         serialize_method.add_instructions(['})'], True)
@@ -410,24 +400,21 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                 is_custom_type_enum = True
                 customer_enum_size = value['size']
         if is_custom_type_enum and customer_enum_size > 0:
-            lines = ['const {0} = GeneratorUtils.fitByteArray(GeneratorUtils.uintToBuffer(this.{1}, {2}), {2})'
+            lines = ['const {0} = GeneratorUtils.uintToBuffer(this.{1}, {2})'
                      .format(attribute_bytes_name, attribute_name, customer_enum_size)]
         else:
-            lines = ['const {0} = GeneratorUtils.fitByteArray(this.{1}.serialize(), this.{1}.getSize())'.format(attribute_bytes_name,
-                                                                                                                attribute_name)]
+            lines = ['const {0} = this.{1}.serialize()'.format(attribute_bytes_name, attribute_name)]
         lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute_bytes_name)]
         self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
     def _serialize_attribute_flags(self, attribute, serialize_method):
-        attribute_name = attribute['name']
         size = get_attribute_size(self.schema, attribute)
-        enum_type = get_builtin_type(size)
         method = '{0}(this.{1}(), {2})'.format(get_read_method_name(size),
                                                self._get_generated_getter_name(attribute['name']),
                                                size) if size < 8 else '{0}(this.{1}())'.format(get_read_method_name(size),
                                                                                                self._get_generated_getter_name(
                                                                                                    attribute['name']))
-        lines = ['const {0}Bytes = GeneratorUtils.fitByteArray({1}, {2});'.format(attribute['name'], method, size)]
+        lines = ['const {0}Bytes = {1}'.format(attribute['name'], method)]
         lines += ['newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute['name']+'Bytes')]
         self._add_attribute_condition_if_needed(attribute, serialize_method, 'this.', lines, False)
 
@@ -442,7 +429,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             method = '{0}(this.{1}, {2})'.format(get_read_method_name(size),
                                                  full_property_name,
                                                  size)
-            line = 'const {0} = GeneratorUtils.fitByteArray({1}, {2})'.format(attribute_bytes_name, method, size)
+            line = 'const {0} = {1}'.format(attribute_bytes_name, method)
             line2 = 'newArray = GeneratorUtils.concatTypedArrays(newArray, {0})'.format(attribute_bytes_name)
             # line = 'dataOutputStream.{0}({1})'.format(get_write_method_name(size), reverse_byte_method)
             serialize_method.add_instructions([line])
@@ -488,8 +475,8 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
 
     def _add_serialize_custom(self, serialize_method):
         if self.base_class_name is not None:
-            serialize_method.add_instructions(['const superBytes = GeneratorUtils.fitByteArray(super.serialize(), super.getSize())'])
-            serialize_method.add_instructions(['GeneratorUtils.concatTypedArrays(newArray, superBytes)'])
+            serialize_method.add_instructions(['const superBytes = super.serialize()'])
+            serialize_method.add_instructions(['newArray = GeneratorUtils.concatTypedArrays(newArray, superBytes)'])
         self._recurse_foreach_attribute(self.name, self._generate_serialize_attributes,
                                         serialize_method, [self.base_class_name, self._get_body_class_name()])
 
