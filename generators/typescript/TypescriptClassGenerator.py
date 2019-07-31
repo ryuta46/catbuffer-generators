@@ -257,7 +257,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         const_delaration = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
         read_method_name = get_byte_convert_method_name(size).format(const_delaration)
         lines = ['{2}{0} = {1}'.format(attribute['name'], read_method_name, '' if self._is_conditional_attribute(attribute) else 'const ')]
-        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
+        lines += ['byteArray.splice(0, {0})'.format(size)]
         self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
@@ -266,7 +266,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         size = get_attribute_size(self.schema, attribute)
         lines = ['{2}{0} = GeneratorUtils.getBytes(Uint8Array.from(byteArray), {1})'
                  .format(attribute['name'], size, '' if self._is_conditional_attribute(attribute) else 'const ')]
-        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
+        lines += ['byteArray.splice(0, {0})'.format(size)]
         load_from_binary_method.add_instructions(lines)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
@@ -290,7 +290,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
                         .format(get_generated_class_name(attribute_typename, attribute, self.schema),
                                 '' if self._is_conditional_attribute(attribute) else 'const '))])
         load_from_binary_method.add_instructions([indent('{0}.push(item)'.format(attribute_name))])
-        load_from_binary_method.add_instructions([indent('byteArray = byteArray.splice(0, item.getSize())')])
+        load_from_binary_method.add_instructions([indent('byteArray.splice(0, item.getSize())')])
         load_from_binary_method.add_instructions(['}'], False)
 
     def _load_from_binary_custom(self, attribute, load_from_binary_method):
@@ -308,12 +308,12 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             enum_method = get_byte_convert_method_name(customer_enum_size).format(const_declare)
             lines = ['{2}{0} = {1}'.format(attribute['name'], enum_method,
                                            '' if self._is_conditional_attribute(attribute) else 'const ')]
-            lines += ['byteArray = byteArray.splice(0, {0})'.format(customer_enum_size)]
+            lines += ['byteArray.splice(0, {0})'.format(customer_enum_size)]
         else:
             lines = ['{2}{0} = {1}.loadFromBinary(Uint8Array.from(byteArray))'
                      .format(attribute['name'],get_generated_class_name(attribute['type'], attribute, self.schema),
                              '' if self._is_conditional_attribute(attribute) else 'const ')]
-            lines += ['byteArray = byteArray.splice(0, {0}.getSize())'.format(attribute['name'])]
+            lines += ['byteArray.splice(0, {0}.getSize())'.format(attribute['name'])]
         self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
 
     def _load_from_binary_flags(self, attribute, load_from_binary_method):
@@ -321,7 +321,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(size)
         read_method_name = get_byte_convert_method_name(size).format(const_declare)
         lines = ['{2}{0} = {1}'.format(attribute['name'], read_method_name, '' if self._is_conditional_attribute(attribute) else 'const ')]
-        lines += ['byteArray = byteArray.splice(0, {0})'.format(size)]
+        lines += ['byteArray.splice(0, {0})'.format(size)]
         self._add_attribute_condition_if_needed(attribute, load_from_binary_method, '', lines, True)
         if len(self.load_from_binary_atrribute_list) <= 1:
             load_from_binary_method.add_instructions(['return new {0}({1})'.format(self.generated_class_name, attribute['name'])])
@@ -335,7 +335,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
             const_declare = 'GeneratorUtils.getBytes(Uint8Array.from(byteArray), {0})'.format(attribute['size'])
             size_method = get_byte_convert_method_name(attribute['size']).format(const_declare)
             lines = ['const {0} = {1}'.format(attribute['name'], size_method)]
-            lines += ['byteArray = byteArray.splice(0, {0})'.format(attribute['size'])]
+            lines += ['byteArray.splice(0, {0})'.format(attribute['size'])]
             load_from_binary_method.add_instructions(lines)
         else:
             load_attribute = {
@@ -464,7 +464,7 @@ class TypescriptClassGenerator(TypescriptGeneratorBase):
         if self.base_class_name is not None:
             lines = ['const superObject = {0}.loadFromBinary(Uint8Array.from(byteArray))'
                      .format(get_generated_class_name(self.base_class_name, self.schema[self.base_class_name], self.schema))]
-            lines += ['byteArray = byteArray.splice(0, superObject.getSize())']
+            lines += ['byteArray.splice(0, superObject.getSize())']
             load_from_binary_method.add_instructions(lines)
 
         self._recurse_foreach_attribute(self.name, self._generate_load_from_binary_attributes,
