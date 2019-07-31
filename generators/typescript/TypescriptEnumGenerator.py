@@ -1,8 +1,6 @@
-from .Helpers import get_builtin_type, indent, get_attribute_size, is_flags_enum, get_comments_from_attribute
-from .Helpers import get_comments_if_present, create_enum_name, InterfaceType
-from .Helpers import get_read_method_name, get_reverse_method_name, get_write_method_name
+from .Helpers import get_builtin_type, indent, get_comments_from_attribute
+from .Helpers import get_comments_if_present, create_enum_name
 from .TypescriptGeneratorBase import TypescriptGeneratorBase
-from .TypescriptMethodGenerator import TypescriptMethodGenerator
 
 
 def get_type(attribute):

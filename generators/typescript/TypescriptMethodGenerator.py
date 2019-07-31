@@ -9,8 +9,8 @@ class TypescriptMethodGenerator:
         joint_list = ', '.join(params)
         constructor_params = []
         if name == 'constructor':
-            for p in joint_list.split(','):
-                constructor_params.append('{0}'.format(p))
+            for param in joint_list.split(','):
+                constructor_params.append('{0}'.format(param))
         parameter = ', '.join(constructor_params) if name == 'constructor' else ', '.join(params)
         line = '{0} static'.format(scope) if static_method else '{0}'.format(scope)
         if return_type:

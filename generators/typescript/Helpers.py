@@ -74,17 +74,17 @@ def get_attribute_kind(attribute):
     if is_enum_type(attribute_type):
         return AttributeKind.ENUM
 
-    attribute_size = attribute['size']
-
-    if isinstance(attribute_size, str):
-        if attribute_size.endswith('Size'):
-            return AttributeKind.BUFFER
-        if attribute_size.endswith('Count'):
-            return AttributeKind.ARRAY
-
-    if is_builtin_type(attribute_type, attribute_size):
-        return AttributeKind.SIMPLE
-
+    if 'size' in attribute:
+        attribute_size = attribute['size']
+        att_kind = AttributeKind.BUFFER
+        if isinstance(attribute_size, str):
+            if attribute_size.endswith('Size'):
+                att_kind = AttributeKind.BUFFER
+            if attribute_size.endswith('Count'):
+                att_kind = AttributeKind.ARRAY
+            return att_kind
+        if is_builtin_type(attribute_type, attribute_size):
+            return AttributeKind.SIMPLE
     return AttributeKind.BUFFER
 
 

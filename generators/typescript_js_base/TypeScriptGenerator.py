@@ -144,7 +144,8 @@ class TypeScriptGenerator:
         self.load_from_binary_function.set_name('loadFromBinary')
         self.load_from_binary_function.set_return_type(': ' + class_name)
         self.load_from_binary_function.set_params(['consumableBuffer'])
-        self.load_from_binary_function.add_instructions(['const {0} = new {1}()'.format(class_name[0].lower() + class_name[1:], class_name)])
+        self.load_from_binary_function.add_instructions(['const {0} = new {1}()'
+                                                         .format(class_name[0].lower() + class_name[1:], class_name)])
         self._recurse_inlines(self._generate_load_from_binary_attributes, attributes)
         self.load_from_binary_function.add_instructions(['return {}'.format(class_name[0].lower() + class_name[1:])])
         self.new_class.add_function(self.load_from_binary_function)
